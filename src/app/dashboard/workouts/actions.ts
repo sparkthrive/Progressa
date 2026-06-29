@@ -18,7 +18,8 @@ export async function startWorkout(routineId: string) {
             routine_exercises(
                 exercise_id,
                 sys_order,
-                sets_target
+                sets_target,
+                exercise:exercises(name, measurement_type)
             )
         `)
         .eq('id', routineId)
@@ -65,7 +66,7 @@ export async function completeWorkout(workoutId: string, notes: string = '') {
     // 1. Fetch workout to calculate duration
     const { data: workout } = await supabase
         .from('workouts')
-        .select('started_at')
+        .select('name, started_at')
         .eq('id', workoutId)
         .single()
 
@@ -109,8 +110,104 @@ export async function completeWorkout(workoutId: string, notes: string = '') {
             await updateChallengeProgress('volume', totalVolume)
         }
 
+        // 5. Notify Groups
+        const { publishGroupActivity } = await import('../groups/actions')
+        await publishGroupActivity('workout_completed', {
+            workout_name: workout?.name || 'Entrenamiento',
+            stats: {
+                minutos: Math.floor(durationSeconds / 60),
+                volumen: totalVolume > 1000 ? `${(totalVolume / 1000).toFixed(1)}k kg` : `${totalVolume}kg`
+            }
+        })
+
     } catch (e) {
-        console.error('Failed to update gamification:', e)
+        console.error('Failed to update gamification or group activity:', e)
+    }
+
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/workouts')
+    redirect(`/dashboard/workouts/${workoutId}`)
+}
+
+/**
+ * Finalizes a workout by saving all exercises and their sets data at once
+ */
+export async function finalizeWorkoutWithData(workoutId: string, exercisesData: any[], notes: string = '') {
+    const supabase = await createClient()
+    const now = new Date()
+
+    // 1. Fetch workout to calculate duration
+    const { data: workout } = await supabase
+        .from('workouts')
+        .select('name, started_at')
+        .eq('id', workoutId)
+        .single()
+
+    let durationSeconds = 0
+    if (workout?.started_at) {
+        durationSeconds = Math.floor((now.getTime() - new Date(workout.started_at).getTime()) / 1000)
+    }
+
+    // 2. Update each exercise's sets and volume
+    let totalWorkoutVolume = 0
+
+    for (const ex of exercisesData) {
+        // Calculate volume for this exercise
+        const exerciseVolume = ex.sets.reduce((acc: number, set: any) => {
+            if (set.isCompleted) {
+                return acc + (Number(set.weight) || 0) * (Number(set.reps) || 0)
+            }
+            return acc
+        }, 0)
+
+        totalWorkoutVolume += exerciseVolume
+
+        // Update the checkout_exercises table
+        // We match by workout_id and exercise_id (assuming one entry per exercise type in a workout)
+        await supabase
+            .from('workout_exercises')
+            .update({
+                sets_data: ex.sets,
+                total_volume: exerciseVolume
+            })
+            .eq('workout_id', workoutId)
+            .eq('exercise_id', ex.exerciseId)
+    }
+
+    // 3. Update workout status
+    const { error } = await supabase
+        .from('workouts')
+        .update({
+            status: 'completed',
+            ended_at: now.toISOString(),
+            duration_seconds: durationSeconds,
+            notes,
+            total_volume: totalWorkoutVolume
+        })
+        .eq('id', workoutId)
+
+    if (error) throw new Error('Failed to finalize workout')
+
+    // 4. Award XP and Update Challenges
+    try {
+        const { awardXP, updateChallengeProgress } = await import('../community/actions')
+        await awardXP(100) // Base XP
+        await updateChallengeProgress('workouts', 1)
+        if (totalWorkoutVolume > 0) {
+            await updateChallengeProgress('volume', totalWorkoutVolume)
+        }
+
+        // 5. Notify Groups
+        const { publishGroupActivity } = await import('../groups/actions')
+        await publishGroupActivity('workout_completed', {
+            workout_name: workout?.name || 'Entrenamiento',
+            stats: {
+                minutos: Math.floor(durationSeconds / 60),
+                volumen: totalWorkoutVolume > 1000 ? `${(totalWorkoutVolume / 1000).toFixed(1)}k kg` : `${totalWorkoutVolume}kg`
+            }
+        })
+    } catch (e) {
+        console.error('Failed to update gamification or group activity:', e)
     }
 
     revalidatePath('/dashboard')

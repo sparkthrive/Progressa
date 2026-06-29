@@ -6,12 +6,15 @@ export interface WorkoutSet {
     weight: number
     reps: number
     isCompleted: boolean
+    rest_seconds?: number
 }
 
 export interface WorkoutExercise {
     exerciseId: string
     name: string
     sets: WorkoutSet[]
+    measurement_type?: 'reps' | 'time'
+    rest_seconds?: number
 }
 
 interface WorkoutState {
@@ -42,19 +45,23 @@ export const useWorkoutStore = create<WorkoutState>()(
                     return {
                         exerciseId: ex.exercise_id,
                         name: ex.exercise?.name || 'Desconocido',
+                        measurement_type: ex.exercise?.measurement_type || 'reps',
                         sets: targetSets.length > 0
                             ? targetSets.map((s: any) => ({
                                 id: Math.random().toString(36).substr(2, 9),
                                 weight: s.weight || 0,
                                 reps: s.reps || 10,
                                 isCompleted: false,
+                                rest_seconds: s.rest_seconds || 60,
                             }))
                             : Array.from({ length: 3 }).map(() => ({
                                 id: Math.random().toString(36).substr(2, 9),
                                 weight: 0,
                                 reps: 10,
                                 isCompleted: false,
+                                rest_seconds: 60,
                             })),
+                        rest_seconds: targetSets[0]?.rest_seconds || 60,
                     }
                 })
 
@@ -87,6 +94,7 @@ export const useWorkoutStore = create<WorkoutState>()(
                         weight: lastSet?.weight || 0,
                         reps: lastSet?.reps || 10,
                         isCompleted: false,
+                        rest_seconds: lastSet?.rest_seconds || 60,
                     })
                     return { exercises: newExercises }
                 })

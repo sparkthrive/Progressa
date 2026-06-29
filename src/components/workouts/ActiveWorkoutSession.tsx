@@ -16,13 +16,18 @@ import {
     X,
     Trophy,
     Check,
-    Loader2
+    Loader2,
+    Timer,
+    AlertTriangle
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { completeWorkout, updateWorkoutExercise } from '@/app/dashboard/workouts/actions'
+import { completeWorkout, updateWorkoutExercise, deleteWorkout } from '@/app/dashboard/workouts/actions'
 import { useRouter } from 'next/navigation'
+import { useWorkoutStore } from '@/store/useWorkoutStore'
+import { TimerDisplay } from '@/components/workouts/TimerDisplay'
+import { toast } from 'sonner'
 
 interface ActiveWorkoutSessionProps {
     workout: any
@@ -31,12 +36,21 @@ interface ActiveWorkoutSessionProps {
 
 export function ActiveWorkoutSession({ workout, exercises: initialExercises }: ActiveWorkoutSessionProps) {
     const router = useRouter()
+    const { finishWorkout } = useWorkoutStore()
     const [seconds, setSeconds] = useState(0)
     const [isActive, setIsActive] = useState(true)
     const [exercises, setExercises] = useState(initialExercises)
     const [isFinishing, setIsFinishing] = useState(false)
     const [notes, setNotes] = useState('')
     const [syncing, setSyncing] = useState<string[]>([])
+    const [holdProgress, setHoldProgress] = useState(0)
+    const [isHolding, setIsHolding] = useState(false)
+    const [activeTimer, setActiveTimer] = useState<{
+        type: 'rest' | 'exercise',
+        duration: number,
+        label: string
+    } | null>(null)
+    const holdIntervalRef = useState<any>(null) // We can use state or ref. Let's use a standard ref logic.
 
     // Timer logic
     useEffect(() => {
@@ -50,6 +64,41 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
         }
         return () => clearInterval(interval)
     }, [isActive])
+
+    // Hold to cancel logic
+    useEffect(() => {
+        let holdTimer: any = null
+        if (isHolding) {
+            const startTime = Date.now()
+            holdTimer = setInterval(() => {
+                const elapsed = Date.now() - startTime
+                const progress = Math.min((elapsed / 3000) * 100, 100)
+                setHoldProgress(progress)
+
+                if (progress >= 100) {
+                    clearInterval(holdTimer)
+                    // Actual abandonment logic
+                    const cancelSession = async () => {
+                        try {
+                            await deleteWorkout(workout.id)
+                            finishWorkout() // Clear local Zustand store
+                            router.push('/dashboard')
+                        } catch (err) {
+                            console.error('Failed to cancel workout:', err)
+                            alert('No se pudo cancelar el entrenamiento correctamente.')
+                        }
+                    }
+                    cancelSession()
+                }
+            }, 50)
+        } else {
+            setHoldProgress(0)
+            if (holdTimer) clearInterval(holdTimer)
+        }
+        return () => {
+            if (holdTimer) clearInterval(holdTimer)
+        }
+    }, [isHolding, router])
 
     const formatTime = (totalSeconds: number) => {
         const hrs = Math.floor(totalSeconds / 3600)
@@ -69,6 +118,46 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
         }))
     }
 
+    const handleRemoveSet = async (exerciseId: string, setIndex: number) => {
+        let updatedEx: any = null
+
+        setExercises(prev => prev.map(ex => {
+            if (ex.id === exerciseId) {
+                const newSets = ex.sets_data.filter((_: any, i: number) => i !== setIndex)
+                updatedEx = { ...ex, sets_data: newSets }
+                return updatedEx
+            }
+            return ex
+        }))
+
+        if (updatedEx) {
+            setSyncing(prev => [...prev, exerciseId])
+            try {
+                await updateWorkoutExercise(updatedEx.id, updatedEx.sets_data)
+            } catch (error) {
+                console.error('Failed to sync set removal:', error)
+            } finally {
+                setSyncing(prev => prev.filter(id => id !== exerciseId))
+            }
+        }
+    }
+
+    const startRestTimer = (seconds: number = 60) => {
+        setActiveTimer({
+            type: 'rest',
+            duration: seconds,
+            label: 'Descanso'
+        })
+    }
+
+    const startExerciseTimer = (seconds: number, name: string) => {
+        setActiveTimer({
+            type: 'exercise',
+            duration: seconds,
+            label: name
+        })
+    }
+
     const toggleSetComplete = async (exerciseId: string, setIndex: number) => {
         let updatedEx: any = null
 
@@ -83,9 +172,17 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
         }))
 
         if (updatedEx) {
+            const isNowCompleted = updatedEx.sets_data[setIndex].completed
+
             setSyncing(prev => [...prev, exerciseId])
             try {
                 await updateWorkoutExercise(exerciseId, updatedEx.sets_data)
+
+                if (isNowCompleted) {
+                    // Trigger rest timer - check set first, then exercise, then default
+                    const restTime = updatedEx.sets_data[setIndex].rest_seconds || updatedEx.rest_seconds || 60
+                    startRestTimer(restTime)
+                }
             } catch (error) {
                 console.error('Failed to sync set:', error)
             } finally {
@@ -98,7 +195,13 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
         setIsFinishing(true)
         try {
             await completeWorkout(workout.id, notes)
-        } catch (error) {
+            finishWorkout() // Clear local Zustand store
+        } catch (error: any) {
+            // Handle Next.js redirect "error"
+            if (error.digest?.startsWith('NEXT_REDIRECT')) {
+                finishWorkout()
+                return
+            }
             console.error(error)
             alert('Error al finalizar el entrenamiento')
             setIsFinishing(false)
@@ -114,11 +217,21 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
                 </Button>
                 <div className="flex flex-col items-center">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Sesión Activa</span>
-                    <div className="flex items-center gap-2">
-                        <Clock className={`h-4 w-4 ${isActive ? 'text-green-500 animate-pulse' : 'text-neutral-400'}`} />
-                        <span className="text-xl font-mono font-bold tracking-tight">
-                            {formatTime(seconds)}
-                        </span>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <Clock className={`h-4 w-4 ${isActive ? 'text-green-500 animate-pulse' : 'text-neutral-400'}`} />
+                            <span className="text-xl font-mono font-bold tracking-tight">
+                                {formatTime(seconds)}
+                            </span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => startRestTimer(60)}
+                            className="h-8 rounded-xl border-dashed gap-1.5 px-3 text-xs font-bold"
+                        >
+                            <Timer className="h-3 w-3 text-blue-500" /> Descanso
+                        </Button>
                     </div>
                 </div>
                 <Button
@@ -134,6 +247,31 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
                 <h1 className="text-3xl font-extrabold tracking-tight">{workout.name}</h1>
                 <p className="text-neutral-500 font-medium">Mantén el ritmo, cada repetición cuenta.</p>
             </div>
+
+            {/* Global Timer Overlay */}
+            {activeTimer && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6 animate-in fade-in duration-300">
+                    <div className="w-full max-w-xs relative">
+                        <TimerDisplay
+                            duration={activeTimer.duration}
+                            label={activeTimer.label}
+                            autoStart={false}
+                            onComplete={() => {
+                                toast.success('¡Tiempo completado!')
+                                setTimeout(() => setActiveTimer(null), 1000)
+                            }}
+                        />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setActiveTimer(null)}
+                            className="absolute -top-12 right-0 text-white hover:bg-white/10 rounded-full"
+                        >
+                            <X className="h-6 w-6" />
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {/* Exercises List */}
             <div className="space-y-8 mt-8">
@@ -159,7 +297,13 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
                             <div className="grid grid-cols-12 gap-2 px-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                                 <div className="col-span-2 text-center">Set</div>
                                 <div className="col-span-4 text-center">Peso (kg)</div>
-                                <div className="col-span-4 text-center">Reps</div>
+                                <div className="col-span-4 text-center flex items-center justify-center gap-1">
+                                    {exercise.exercises.measurement_type === 'time' ? (
+                                        <><Timer className="h-3 w-3" /> Tiempo (s)</>
+                                    ) : (
+                                        'Reps'
+                                    )}
+                                </div>
                                 <div className="col-span-2 text-center">Listo</div>
                             </div>
 
@@ -167,8 +311,8 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
                                 <div
                                     key={sIdx}
                                     className={`grid grid-cols-12 gap-2 items-center p-1.5 rounded-xl transition-all ${set.completed
-                                            ? 'bg-green-50 dark:bg-green-950/20'
-                                            : 'bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800'
+                                        ? 'bg-green-50 dark:bg-green-950/20'
+                                        : 'bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800'
                                         }`}
                                 >
                                     <div className="col-span-2 text-center font-bold text-sm text-neutral-400">
@@ -184,28 +328,48 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
                                                 }`}
                                         />
                                     </div>
-                                    <div className="col-span-4">
+                                    <div className="col-span-4 flex items-center gap-2">
                                         <Input
                                             type="number"
                                             value={set.reps || ''}
                                             onChange={(e) => handleSetUpdate(exercise.id, sIdx, 'reps', e.target.value)}
-                                            placeholder="--"
+                                            placeholder={exercise.exercises.measurement_type === 'time' ? "30" : "10"}
                                             className={`h-10 text-center font-bold text-lg border-none bg-white dark:bg-neutral-800 rounded-lg shadow-sm ${set.completed ? 'opacity-50' : ''
                                                 }`}
                                         />
+                                        {exercise.exercises.measurement_type === 'time' && (
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-8 w-8 shrink-0 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                                                onClick={() => startExerciseTimer(parseInt(set.reps) || 30, exercise.exercises.name)}
+                                            >
+                                                <Play className="h-3 w-3 fill-current" />
+                                            </Button>
+                                        )}
                                     </div>
-                                    <div className="col-span-2 flex justify-center">
+                                    <div className="col-span-2 flex justify-center gap-1">
                                         <Button
                                             size="icon"
                                             variant={set.completed ? 'default' : 'ghost'}
                                             onClick={() => toggleSetComplete(exercise.id, sIdx)}
                                             className={`h-10 w-10 rounded-lg transition-all ${set.completed
-                                                    ? 'bg-green-500 hover:bg-green-600 text-white'
-                                                    : 'text-neutral-300 hover:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                                                ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200 dark:shadow-none'
+                                                : 'text-neutral-300 hover:text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                                                 }`}
                                         >
                                             <Check className="h-5 w-5" />
                                         </Button>
+                                        {!set.completed && (
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-10 w-10 text-neutral-300 hover:text-red-500"
+                                                onClick={() => handleRemoveSet(exercise.id, sIdx)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -227,6 +391,54 @@ export function ActiveWorkoutSession({ workout, exercises: initialExercises }: A
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* Hold to Cancel Button */}
+            <div className="pt-12 flex flex-col items-center gap-4">
+                <button
+                    onMouseDown={() => setIsHolding(true)}
+                    onMouseUp={() => setIsHolding(false)}
+                    onMouseLeave={() => setIsHolding(false)}
+                    onTouchStart={() => setIsHolding(true)}
+                    onTouchEnd={() => setIsHolding(false)}
+                    className="group relative h-20 w-20 flex items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-800 transition-transform active:scale-95 overflow-hidden"
+                >
+                    {/* Background Progress Fill */}
+                    <div
+                        className="absolute bottom-0 left-0 w-full bg-red-500/10 transition-all duration-75 ease-linear"
+                        style={{ height: `${holdProgress}%` }}
+                    />
+
+                    {/* SVG Progress Ring */}
+                    <svg className="absolute inset-0 h-full w-full -rotate-90">
+                        <circle
+                            cx="40"
+                            cy="40"
+                            r="36"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            className="text-red-500 transition-all duration-75 ease-linear"
+                            style={{
+                                strokeDasharray: 226,
+                                strokeDashoffset: 226 - (226 * holdProgress) / 100,
+                                opacity: isHolding ? 1 : 0
+                            }}
+                        />
+                    </svg>
+
+                    <div className={`relative z-10 transition-colors ${isHolding ? 'text-red-500' : 'text-neutral-400 group-hover:text-red-500'}`}>
+                        <X className="h-8 w-8" />
+                    </div>
+                </button>
+                <div className="text-center space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">
+                        {isHolding ? 'Mantén presionado...' : 'Mantén para cancelar'}
+                    </p>
+                    <p className="text-[10px] text-neutral-500 max-w-[200px]">
+                        Tu progreso actual no se guardará si cancelas la sesión.
+                    </p>
+                </div>
             </div>
 
             {/* Finish Modal/Overlay */}

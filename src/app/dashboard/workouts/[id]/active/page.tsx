@@ -41,7 +41,8 @@ export default async function ActiveWorkoutPage({ params }: ActiveWorkoutPagePro
             *,
             exercises(
                 name,
-                muscle_group
+                muscle_group,
+                measurement_type
             )
         `)
         .eq('workout_id', id)

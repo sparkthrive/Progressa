@@ -148,7 +148,7 @@ export async function updateUserProfile(data: {
 
     if (error) return { error: error.message }
 
-    revalidatePath('/dashboard/profile')
+    revalidatePath('/dashboard/settings')
     revalidatePath('/dashboard')
     return { success: true }
 }

@@ -135,13 +135,17 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(DISCIPLINE_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() => toggleArrayFilter('disciplines', value as Discipline)}
+                            >
                                 <Checkbox
                                     checked={filters.disciplines?.includes(value as Discipline)}
-                                    onCheckedChange={() => toggleArrayFilter('disciplines', value as Discipline)}
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -155,13 +159,17 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(MUSCLE_GROUP_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() => toggleArrayFilter('muscleGroups', value as MuscleGroup)}
+                            >
                                 <Checkbox
                                     checked={filters.muscleGroups?.includes(value as MuscleGroup)}
-                                    onCheckedChange={() => toggleArrayFilter('muscleGroups', value as MuscleGroup)}
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -175,13 +183,17 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(MOVEMENT_TYPE_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() => toggleArrayFilter('movementTypes', value as MovementType)}
+                            >
                                 <Checkbox
                                     checked={filters.movementTypes?.includes(value as MovementType)}
-                                    onCheckedChange={() => toggleArrayFilter('movementTypes', value as MovementType)}
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -195,13 +207,17 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(EQUIPMENT_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() => toggleArrayFilter('equipment', value as Equipment)}
+                            >
                                 <Checkbox
                                     checked={filters.equipment?.includes(value as Equipment)}
-                                    onCheckedChange={() => toggleArrayFilter('equipment', value as Equipment)}
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -215,13 +231,17 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(EXERCISE_GOAL_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() => toggleArrayFilter('goals', value as ExerciseGoal)}
+                            >
                                 <Checkbox
                                     checked={filters.goals?.includes(value as ExerciseGoal)}
-                                    onCheckedChange={() => toggleArrayFilter('goals', value as ExerciseGoal)}
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -235,18 +255,22 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(DIFFICULTY_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() =>
+                                    onFiltersChange({
+                                        ...filters,
+                                        difficulty: filters.difficulty === value ? undefined : (value as DifficultyLevel)
+                                    })
+                                }
+                            >
                                 <Checkbox
                                     checked={filters.difficulty === value}
-                                    onCheckedChange={(checked) =>
-                                        onFiltersChange({
-                                            ...filters,
-                                            difficulty: checked ? value as DifficultyLevel : undefined
-                                        })
-                                    }
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -260,13 +284,17 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(EXERCISE_TYPE_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() => toggleArrayFilter('exerciseTypes', value as ExerciseType)}
+                            >
                                 <Checkbox
                                     checked={filters.exerciseTypes?.includes(value as ExerciseType)}
-                                    onCheckedChange={() => toggleArrayFilter('exerciseTypes', value as ExerciseType)}
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -280,18 +308,22 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(DURATION_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() =>
+                                    onFiltersChange({
+                                        ...filters,
+                                        durationPerSet: filters.durationPerSet === value ? undefined : (value as DurationPerSet)
+                                    })
+                                }
+                            >
                                 <Checkbox
                                     checked={filters.durationPerSet === value}
-                                    onCheckedChange={(checked) =>
-                                        onFiltersChange({
-                                            ...filters,
-                                            durationPerSet: checked ? value as DurationPerSet : undefined
-                                        })
-                                    }
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>
@@ -305,18 +337,22 @@ export function ExerciseFilterPanel({ filters, onFiltersChange, userEquipment }:
                 >
                     <div className="grid grid-cols-1 gap-2">
                         {Object.entries(JOINT_IMPACT_LABELS).map(([value, label]) => (
-                            <label key={value} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors">
+                            <div
+                                key={value}
+                                className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 p-2 rounded-lg transition-colors"
+                                onClick={() =>
+                                    onFiltersChange({
+                                        ...filters,
+                                        jointImpact: filters.jointImpact === value ? undefined : (value as JointImpact)
+                                    })
+                                }
+                            >
                                 <Checkbox
                                     checked={filters.jointImpact === value}
-                                    onCheckedChange={(checked) =>
-                                        onFiltersChange({
-                                            ...filters,
-                                            jointImpact: checked ? value as JointImpact : undefined
-                                        })
-                                    }
+                                    className="pointer-events-none"
                                 />
                                 <span className="text-sm">{label}</span>
-                            </label>
+                            </div>
                         ))}
                     </div>
                 </FilterSection>

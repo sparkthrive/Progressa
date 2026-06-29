@@ -58,6 +58,13 @@ export async function awardXP(amount: number) {
         throw new Error('Failed to award XP')
     }
 
+    // Log XP entry for weekly rankings
+    await supabase.from('xp_logs').insert({
+        user_id: user.id,
+        amount: amount,
+        reason: 'activity' // Could be passed as argument
+    })
+
     revalidatePath('/dashboard')
 }
 

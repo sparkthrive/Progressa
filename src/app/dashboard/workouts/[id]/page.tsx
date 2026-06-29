@@ -12,10 +12,12 @@ import {
     CheckCircle2,
     Share2,
     Repeat,
-    ArrowRight
+    ArrowRight,
+    Timer
 } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { WorkoutHeaderActions, WorkoutBottomActions } from '@/components/workouts/WorkoutDetailActions'
 
 interface WorkoutDetailPageProps {
     params: Promise<{
@@ -42,7 +44,8 @@ export default async function WorkoutDetailPage({ params }: WorkoutDetailPagePro
                 sets_data,
                 exercises(
                     name,
-                    muscle_group
+                    muscle_group,
+                    measurement_type
                 )
             )
         `)
@@ -76,7 +79,7 @@ export default async function WorkoutDetailPage({ params }: WorkoutDetailPagePro
 
     workout.workout_exercises?.forEach((ex: any) => {
         ex.sets_data?.forEach((set: any) => {
-            if (set.completed) {
+            if (set.isCompleted || set.completed) { // Support both for safety during migration
                 totalSets++
                 totalVolume += (Number(set.weight) || 0) * (Number(set.reps) || 0)
             }
@@ -92,14 +95,17 @@ export default async function WorkoutDetailPage({ params }: WorkoutDetailPagePro
                         <ChevronLeft className="h-4 w-4" /> Volver al historial
                     </Link>
                 </Button>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="rounded-full h-10 w-10">
-                        <Share2 className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" className="rounded-full h-10 w-10 text-red-500 border-red-100 hover:bg-red-50 dark:border-red-900/30">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </div>
+                <WorkoutHeaderActions
+                    workoutId={workout.id}
+                    workoutName={workout.name}
+                    stats={{
+                        duration: formatTime(workout.duration_seconds || 0),
+                        volume: totalVolume,
+                        sets: totalSets,
+                        exercises: totalExercises,
+                        date: formatDate(workout.ended_at)
+                    }}
+                />
             </div>
 
             {/* Victory Celebration */}
@@ -166,7 +172,7 @@ export default async function WorkoutDetailPage({ params }: WorkoutDetailPagePro
                                     </div>
                                     <div className="text-right">
                                         <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Sets</p>
-                                        <p className="text-lg font-black">{we.sets_data?.filter((s: any) => s.completed).length}</p>
+                                        <p className="text-lg font-black">{we.sets_data?.filter((s: any) => s.isCompleted || s.completed).length}</p>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -176,13 +182,19 @@ export default async function WorkoutDetailPage({ params }: WorkoutDetailPagePro
                                         <tr>
                                             <th className="px-6 py-3">Serie</th>
                                             <th className="px-6 py-3 text-center">Peso</th>
-                                            <th className="px-6 py-3 text-center">Reps</th>
+                                            <th className="px-6 py-3 text-center">
+                                                {we.exercises.measurement_type === 'time' ? (
+                                                    <span className="flex items-center justify-center gap-1"><Timer className="h-3 w-3" /> Tiempo (s)</span>
+                                                ) : (
+                                                    'Reps'
+                                                )}
+                                            </th>
                                             <th className="px-6 py-3 text-right">Volumen</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
                                         {we.sets_data?.map((set: any, idx: number) => (
-                                            <tr key={idx} className={set.completed ? 'opacity-100' : 'opacity-30'}>
+                                            <tr key={idx} className={(set.isCompleted || set.completed) ? 'opacity-100' : 'opacity-30'}>
                                                 <td className="px-6 py-4 font-bold text-neutral-400">{idx + 1}</td>
                                                 <td className="px-6 py-4 text-center font-bold">{set.weight || '--'} kg</td>
                                                 <td className="px-6 py-4 text-center font-bold">{set.reps || '--'}</td>
@@ -200,14 +212,7 @@ export default async function WorkoutDetailPage({ params }: WorkoutDetailPagePro
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-10 flex flex-col sm:flex-row gap-4">
-                <Button className="flex-1 h-14 rounded-2xl bg-neutral-900 border-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-50 dark:text-neutral-900 font-bold shadow-xl">
-                    Repetir Entrenamiento
-                </Button>
-                <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold border-neutral-200 dark:border-neutral-800">
-                    Ver Progresión
-                </Button>
-            </div>
+            <WorkoutBottomActions routineId={workout.routine_id} />
         </div>
     )
 }
@@ -224,19 +229,4 @@ function StatItem({ label, value, icon: Icon }: { label: string, value: string, 
     )
 }
 
-function Trash2({ className }: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-        </svg>
-    )
-}
+

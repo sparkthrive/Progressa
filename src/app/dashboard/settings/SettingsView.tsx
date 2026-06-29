@@ -29,11 +29,13 @@ import {
 import { updateUserProfile, signout } from '@/app/(auth)/actions'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ImageUpload } from '@/components/ui/image-upload'
 
 export default function SettingsView({ initialProfile }: { initialProfile: any }) {
     const [isLoading, setIsLoading] = useState(false)
     const [fullName, setFullName] = useState(initialProfile?.full_name || '')
     const [username, setUsername] = useState(initialProfile?.username || '')
+    const [avatarUrl, setAvatarUrl] = useState(initialProfile?.avatar_url || '')
     const [experienceLevel, setExperienceLevel] = useState(initialProfile?.experience_level || 'beginner')
     const [goals, setGoals] = useState<string[]>(initialProfile?.goals || [])
 
@@ -56,6 +58,7 @@ export default function SettingsView({ initialProfile }: { initialProfile: any }
             const result = await updateUserProfile({
                 fullName,
                 username,
+                avatarUrl,
                 experienceLevel,
                 goals
             })
@@ -121,17 +124,17 @@ export default function SettingsView({ initialProfile }: { initialProfile: any }
                                     <CardDescription className="text-neutral-400">Actualiza tus detalles públicos y nivel.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-8 space-y-8">
-                                    {/* Avatar Placeholder */}
+                                    {/* Avatar Uploader */}
                                     <div className="flex items-center gap-6">
-                                        <div className="h-24 w-24 rounded-[2rem] bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-500 relative group cursor-pointer">
-                                            <Camera className="h-8 w-8" />
-                                            <div className="absolute inset-0 bg-black/40 rounded-[2rem] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <span className="text-[10px] font-black uppercase text-white">Cambiar</span>
-                                            </div>
-                                        </div>
+                                        <ImageUpload
+                                            value={avatarUrl}
+                                            onChange={setAvatarUrl}
+                                            bucketName="avatars"
+                                            folderPath="profiles"
+                                        />
                                         <div className="space-y-1">
                                             <h4 className="font-bold">Foto de Perfil</h4>
-                                            <p className="text-sm text-neutral-500">JPG o PNG. Máximo 2MB.</p>
+                                            <p className="text-sm text-neutral-500">JPG o PNG. Máximo 5MB.</p>
                                         </div>
                                     </div>
 

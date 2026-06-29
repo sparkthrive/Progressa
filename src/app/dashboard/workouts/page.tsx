@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { ShareButton } from '@/components/common/ShareButton'
 
 export default async function WorkoutsPage() {
     const supabase = await createClient()
@@ -121,9 +122,19 @@ export default async function WorkoutsPage() {
                                                             })}
                                                         </p>
                                                     </div>
-                                                    <Badge className="bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-100 dark:border-green-900/50">
-                                                        Completado
-                                                    </Badge>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge className="bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-100 dark:border-green-900/50">
+                                                            Completado
+                                                        </Badge>
+                                                        <ShareButton
+                                                            title={`¡Entrenamiento completado!: ${workout.name}`}
+                                                            text={`He terminado "${workout.name}" en PROGRESSA. ¡Mira mis resultados!`}
+                                                            url={`${typeof window !== 'undefined' ? window.location.origin : ''}/dashboard/workouts/${workout.id}`}
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                                                        />
+                                                    </div>
                                                 </div>
 
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +14,8 @@ import {
     Calendar,
     ChevronLeft,
     ChevronRight,
-    Loader2
+    Loader2,
+    Image as ImageIcon
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -23,7 +24,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { deleteProgressPhoto, saveProgressPhoto } from '@/app/dashboard/journal/actions'
+import { deleteProgressPhoto, uploadProgressPhoto } from '@/app/dashboard/journal/actions'
 import { useRouter } from 'next/navigation'
 
 interface ProgressPhoto {
@@ -39,6 +40,7 @@ export function PhotoGallery({ initialPhotos }: { initialPhotos: ProgressPhoto[]
     const [isComparing, setIsComparing] = useState(false)
     const [selectedPhotos, setSelectedPhotos] = useState<string[]>([])
     const [isUploading, setIsUploading] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation()
@@ -65,23 +67,22 @@ export function PhotoGallery({ initialPhotos }: { initialPhotos: ProgressPhoto[]
         setSelectedPhotos([])
     }
 
-    // Mock upload flow
-    const handleMockUpload = async () => {
-        const url = prompt('Ingresa la URL de la imagen (mientras implementamos el storage nativo):')
-        if (!url) return
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
 
         setIsUploading(true)
+        const formData = new FormData()
+        formData.append('file', file)
+
         try {
-            await saveProgressPhoto({
-                photo_url: url,
-                label: 'Frente',
-                recorded_at: new Date().toISOString().split('T')[0]
-            })
+            await uploadProgressPhoto(formData)
             router.refresh()
         } catch (error) {
-            alert('Error al guardar la foto')
+            alert('Error al subir la imagen')
         } finally {
             setIsUploading(false)
+            if (fileInputRef.current) fileInputRef.current.value = ''
         }
     }
 
@@ -109,12 +110,19 @@ export function PhotoGallery({ initialPhotos }: { initialPhotos: ProgressPhoto[]
                         </Badge>
                     )}
                     <Button
-                        onClick={handleMockUpload}
+                        onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
                         className="h-10 w-10 sm:w-auto sm:px-6 rounded-2xl bg-neutral-900 text-white dark:bg-neutral-50 dark:text-neutral-900 font-bold gap-2"
                     >
                         {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Subir Foto</span></>}
                     </Button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/*"
+                        className="hidden"
+                    />
                 </div>
             </div>
 
@@ -178,7 +186,7 @@ export function PhotoGallery({ initialPhotos }: { initialPhotos: ProgressPhoto[]
                             <h3 className="text-xl font-bold">Sin fotos aún</h3>
                             <p className="text-sm text-neutral-500 max-w-[240px]">Sube tu primera foto para empezar a documentar tu cambio físico.</p>
                         </div>
-                        <Button onClick={handleMockUpload} variant="outline" className="rounded-2xl font-bold border-neutral-200">
+                        <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="rounded-2xl font-bold border-neutral-200">
                             Subir primera foto
                         </Button>
                     </div>

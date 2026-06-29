@@ -27,6 +27,7 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${outfit.variable} antialiased font-sans`}
+        suppressHydrationWarning
       >
         {children}
         <Toaster position="top-center" richColors />

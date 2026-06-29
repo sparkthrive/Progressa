@@ -134,3 +134,45 @@ export async function deleteProgressPhoto(id: string) {
 
     revalidatePath('/dashboard/photos')
 }
+
+export async function uploadProgressPhoto(formData: FormData) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const file = formData.get('file') as File
+    const today = new Date().toISOString().split('T')[0]
+
+    // 1. Upload to storage
+    const path = `${user.id}/${today}_${Date.now()}_${file.name}`
+    const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('progress')
+        .upload(path, file)
+
+    if (uploadError) {
+        console.error(uploadError)
+        throw new Error('Failed to upload image')
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+        .from('progress')
+        .getPublicUrl(path)
+
+    // 2. Save record in database
+    const { error: dbError } = await supabase
+        .from('progress_photos')
+        .insert({
+            user_id: user.id,
+            photo_url: publicUrl,
+            label: 'Frente', // Default label
+            recorded_at: today
+        })
+
+    if (dbError) {
+        console.error(dbError)
+        throw new Error('Failed to save progress photo record')
+    }
+
+    revalidatePath('/dashboard/photos')
+    return { url: publicUrl }
+}

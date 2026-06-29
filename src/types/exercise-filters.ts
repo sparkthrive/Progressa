@@ -58,6 +58,8 @@ export type DifficultyLevel = 'principiante' | 'intermedio' | 'avanzado'
 
 export type ExerciseType = 'compuesto' | 'aislado' | 'cardio' | 'estiramiento'
 
+export type MeasurementType = 'reps' | 'time'
+
 export type DurationPerSet = 'corto' | 'medio' | 'largo'
 
 export type JointImpact = 'bajo' | 'medio' | 'alto'
@@ -152,6 +154,7 @@ export interface Exercise {
     instructions?: string[]
     discipline?: Discipline
     discipline_metadata?: DisciplineMetadata
+    measurement_type?: MeasurementType
 }
 
 // Filter option labels
